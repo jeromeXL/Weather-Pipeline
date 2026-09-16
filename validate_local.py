@@ -15,9 +15,10 @@ import pandas as pd
 import pyarrow.parquet as pq
 import requests
 
+# Sydney, matching main.py.
 API_URL = (
     "https://api.open-meteo.com/v1/forecast"
-    "?latitude=40.7128&longitude=-74.0060"
+    "?latitude=-33.8688&longitude=151.2093"
     "&hourly=temperature_2m,relative_humidity_2m"
 )
 
@@ -54,6 +55,7 @@ def simulate_view(staging: pd.DataFrame) -> pd.DataFrame:
     ranked["temperature_fahrenheit"] = (
         (ranked["temperature_2m"] * 9 / 5) + 32
     ).round(2)
+    ranked["is_forecast"] = ranked["timestamp"] > ranked["extracted_at"]
     ranked["rn"] = (
         ranked.sort_values("extracted_at", ascending=False)
         .groupby("timestamp")
@@ -70,6 +72,7 @@ def simulate_view(staging: pd.DataFrame) -> pd.DataFrame:
                 "temperature_celsius",
                 "temperature_fahrenheit",
                 "humidity",
+                "is_forecast",
                 "extracted_at",
             ],
         ]
@@ -144,6 +147,8 @@ def main():
 
     took_newest = (view["extracted_at"] == run_2_at).all()
     print(f"  all rows from newest extract : {took_newest}")
+    print(f"  observations (is_forecast=F)  : {(~view['is_forecast']).sum()}")
+    print(f"  forecasts    (is_forecast=T)  : {view['is_forecast'].sum()}")
 
     print()
     print("  sample (first 3 rows):")

@@ -5,6 +5,10 @@ WITH ranked_records AS (
     temperature_2m AS temperature_celsius,
     ROUND((temperature_2m * 9/5) + 32, 2) AS temperature_fahrenheit,
     humidity,
+    -- The API returns a 7-day forecast, so most rows describe hours that had
+    -- not yet happened when they were collected. Flag those explicitly rather
+    -- than letting a consumer mistake a prediction for an observation.
+    `timestamp` > extracted_at AS is_forecast,
     CAST(extracted_at AS TIMESTAMP) AS extracted_at,
     ROW_NUMBER() OVER (
       PARTITION BY `timestamp`
@@ -18,6 +22,7 @@ SELECT
   temperature_celsius,
   temperature_fahrenheit,
   humidity,
+  is_forecast,
   extracted_at
 FROM
   ranked_records

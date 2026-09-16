@@ -88,6 +88,20 @@ WHERE rn = 1                    -- keep only the newest
 The result is exactly one row per hour, always reflecting the latest available
 forecast — while every superseded version stays in the archive.
 
+There is a second, subtler trap here. Because the feed is mostly predictions, a
+table of "hourly metrics" would quietly mix forecasts with actual recorded
+readings — and no one querying it would be able to tell which was which. The view
+therefore labels every row:
+
+```sql
+`timestamp` > extracted_at AS is_forecast
+```
+
+If the hour being described hadn't happened yet when the data was collected, it is
+a prediction. In a typical run that marks 164 of the 168 rows as forecasts and just
+4 as observations — which is exactly the distinction a downstream analyst needs and
+would otherwise have had no way to make.
+
 ---
 
 ## Verification
@@ -113,6 +127,8 @@ $ python validate_local.py
   distinct timestamps    : 168
   rows surfaced by view  : 168
   duplicate metric_time  : 0
+  observations (is_forecast=F)  : 4
+  forecasts    (is_forecast=T)  : 164
 
 5. UNIT CONVERSION CHECK
   OK      0.0 C ->   32.00 F
@@ -208,6 +224,10 @@ in a `finally` block.
 
 **Every dependency is pinned to an exact version,** so a future release of pandas or
 pyarrow cannot silently change the output format.
+
+**The data and the infrastructure describe the same place.** The pipeline collects
+Sydney weather (`-33.8688, 151.2093`) and runs in Google Cloud's Sydney region, so
+the data has the shortest path to where it is stored and queried.
 
 ---
 

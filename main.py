@@ -10,9 +10,10 @@ BUCKET_NAME = "raw-api-ingest-weather-941b88b1"
 DATASET_ID = "weather_analytics"
 TABLE_ID = "staging_weather"
 
+# Sydney, matching the australia-southeast1 region the pipeline runs in.
 API_URL = (
     "https://api.open-meteo.com/v1/forecast"
-    "?latitude=40.7128&longitude=-74.0060"
+    "?latitude=-33.8688&longitude=151.2093"
     "&hourly=temperature_2m,relative_humidity_2m"
 )
 REQUEST_TIMEOUT_SECONDS = 30
