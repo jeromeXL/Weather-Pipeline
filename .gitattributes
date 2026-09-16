@@ -1,0 +1,8 @@
+# Shell scripts must keep LF endings or they fail on Linux / Cloud Shell
+# with "$'\r': command not found".
+*.sh text eol=lf
+
+*.py text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
