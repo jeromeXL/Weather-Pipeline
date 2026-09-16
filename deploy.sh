@@ -67,6 +67,48 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Step 2b: grant the runtime service account the access it needs.
+#
+# A gen2 function runs as the Compute Engine default service account. Google no
+# longer grants that account broad project access by default, so without these
+# bindings the deploy SUCCEEDS and then every invocation fails with a 403 when
+# it tries to write to GCS or start a BigQuery load job -- a failure that looks
+# like success until you read the logs. Granting explicitly is also simply
+# better practice than relying on an inherited default.
+# ---------------------------------------------------------------------------
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" \
+  --format='value(projectNumber)')"
+RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+echo "==> Granting roles to ${RUNTIME_SA}"
+
+# Object admin rather than objectCreator: the function writes the Parquet file,
+# and the BigQuery load job then reads it back using this same identity.
+# Scoped to the one bucket, not the whole project.
+gcloud storage buckets add-iam-policy-binding "gs://${BUCKET_NAME}" \
+  --member="serviceAccount:${RUNTIME_SA}" \
+  --role="roles/storage.objectAdmin" >/dev/null
+
+# bigquery.dataEditor  -- create and append to staging_weather
+# bigquery.jobUser     -- start load jobs (project-level only; no dataset scope)
+# artifactregistry.writer + logging.logWriter -- required by the gen2 build,
+#   which uses this same service account
+for ROLE in \
+  roles/bigquery.dataEditor \
+  roles/bigquery.jobUser \
+  roles/artifactregistry.writer \
+  roles/logging.logWriter
+do
+  echo "    ${ROLE}"
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${RUNTIME_SA}" \
+    --role="$ROLE" \
+    --condition=None >/dev/null
+done
+
+# IAM changes are eventually consistent.
+sleep 15
+
+# ---------------------------------------------------------------------------
 # Step 3: deployment and orchestration
 # ---------------------------------------------------------------------------
 echo "==> Deploying Cloud Function ${FUNCTION_NAME} (first build takes ~3 min)"
